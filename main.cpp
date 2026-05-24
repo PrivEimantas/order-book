@@ -1,6 +1,7 @@
 #include <iostream>
 #include "Order.h"
 #include "Share.h"
+#include "OrderBook.h"
 
 // argument is a constant string from std and we reference its memory address to avoid copying the string, so we dont actually modify the string that we passed in
 // you can pass in a non-const reference if you want to modify the string, but in this case we just want to read it and convert it to an enum, so we use a const reference
@@ -18,7 +19,7 @@ Order setup_order(int& currentI)
     std::cout << "Enter order details ( side, price, quantity): ";
     int id;
     std::string sideStr;
-    double price;
+    int64_t price;
     int quantity;
         
     std::cin >> sideStr >> price >> quantity;
@@ -31,49 +32,83 @@ Order setup_order(int& currentI)
     return userOrder;
 }
 
-int main() {
-    std::cout << "Order book starting" << std::endl;
 
-    Order buyArray[5];
-    Order sellArray[5];
-    Order userOrder;
-    int currentID = 0;
-    
-    while (true) {
-        std::string decision;
-        std::cout << "-----------------------------" << std::endl;
-        std::cout << "Buy or Sell? (type 'exit' to quit)" << std::endl;
+int main(){
 
-        
-        std::cin >> decision;
+    OrderBook book;
+    int64_t currentID = 0;
 
-        if (decision == "exit") {
+    while(true){
+        std::string sideStr;
+        double price;
+        int32_t quantity;
+        std::cout << "Select to Buy/Sell, Price and Quantity \n" << std::endl;
+        std::cin >> sideStr >> price >> quantity;
+
+        if(sideStr == "exit"){
             std::cout << "Exiting order book." << std::endl;
             break;
         }
 
-        else if (decision == "Buy"){
-            std::cout << "You chose to Buy." << std::endl;
-            userOrder = setup_order(currentID);
-            buyArray[userOrder.id % 5] = userOrder; // Simple way to store orders in a circular buffer
-
-        }
-        else if (decision == "Sell"){
-            std::cout << "You chose to Sell." << std::endl;
-            userOrder = setup_order(currentID);
-            sellArray[userOrder.id % 5] = userOrder; // Simple way to store orders in a circular buffer
-        }
-        else {
-            std::cout << "Invalid choice. Please enter 'Buy', 'Sell', or 'exit'." << std::endl;
-            continue; // Skip the rest of the loop and ask again
-        }
+        Order o;
+        o.id = currentID++;
+        o.side = static_cast<Side>(price*100); // prevents compiler warning about implicit conversion makes it easier to spot conversion type
+        o.quantity = quantity;
+        o.side = parseSide(sideStr);
 
 
-        std::cout << "Order added: " << userOrder.id 
-                   << " | " << (userOrder.side == Side::Buy ? "Buy" : "Sell")
-                   << " | $" << userOrder.price << " | x" << userOrder.quantity << std::endl;
+        book.matchOrders(o);
+        book.printBook();
+
+
+    }
+
+
+
+}
+
+// int main() {
+//     std::cout << "Order book starting" << std::endl;
+
+//     Order orders[5];
+//     Order userOrder;
+//     int currentID = 0;
+    
+//     while (true) {
+//         std::string decision;
+//         std::cout << "-----------------------------" << std::endl;
+//         std::cout << "Buy or Sell? (type 'exit' to quit)" << std::endl;
+
+        
+//         std::cin >> decision;
+
+//         if (decision == "exit") {
+//             std::cout << "Exiting order book." << std::endl;
+//             break;
+//         }
+
+//         else if (decision == "Buy"){
+//             std::cout << "You chose to Buy." << std::endl;
+//             userOrder = setup_order(currentID);
+//             orders[userOrder.id] = userOrder; // Simple way to store orders in a circular buffer
+
+//         }
+//         else if (decision == "Sell"){
+//             std::cout << "You chose to Sell." << std::endl;
+//             userOrder = setup_order(currentID);
+//             orders[userOrder.id] = userOrder; // Simple way to store orders in a circular buffer
+//         }
+//         else {
+//             std::cout << "Invalid choice. Please enter 'Buy', 'Sell', or 'exit'." << std::endl;
+//             continue; // Skip the rest of the loop and ask again
+//         }
+
+//         //Finish asking for buy/sell
+
+
+
     
         
-    }
-    return 0;
-}
+//     }
+//     return 0;
+// }
