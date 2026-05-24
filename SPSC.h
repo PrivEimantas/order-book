@@ -4,15 +4,16 @@
 #include "Order.h"
 #include <map>
 #include <deque>
-
+#include <atomic>
 
 template <typename T>
 class SPSC{
     private:
         size_t capacity=0;
         T* arr;
-        size_t headPtr=0;
-        size_t tailPtr=0;
+        alignas(64) std::atomic<size_t> headPtr{0}; //The alignas(64) puts each atomic on its own cache line so the two threads don't invalidate each other's CPU cache when they update their respective pointers. 
+        //This is called false sharing and it's a real performance killer in low latency systems.
+        alignas(64) std::atomic<size_t> tailPtr{0};
 
     public:
 
