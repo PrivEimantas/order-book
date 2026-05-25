@@ -29,13 +29,17 @@ void OrderBook::printBook() {
     std::cout << "Bids:" << std::endl;
     for (const auto& [price, orders] : bids) {
         for (const auto& order : orders) {
-            std::cout << "ID: " << order.id << ", Price: " << order.price << ", Quantity: " << order.quantity << std::endl;
+            std::cout << "ID: " << order.id 
+                      << ", Price: $" << order.price / 100.0 
+                      << ", Quantity: " << order.quantity << std::endl;
         }
     }
     std::cout << "Asks:" << std::endl;
     for (const auto& [price, orders] : asks) {
         for (const auto& order : orders) {
-            std::cout << "ID: " << order.id << ", Price: " << order.price << ", Quantity: " << order.quantity << std::endl;
+            std::cout << "ID: " << order.id 
+                      << ", Price: $" << order.price / 100.0 
+                      << ", Quantity: " << order.quantity << std::endl;
         }
     }
 }
