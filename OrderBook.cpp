@@ -48,9 +48,12 @@ void OrderBook::printBook() {
 //asks.begin()->second  = the deque    e.g. [order, order, order]
 
 void OrderBook::matchOrders(Order order){
-    auto now = std::chrono::high_resolution_clock::now();
-    auto latencyNs = std::chrono::duration_cast<std::chrono::nanoseconds>(now - order.timestamp).count();
-    latencies.push_back(latencyNs);
+  
+
+        auto start = std::chrono::high_resolution_clock::now();
+    // auto now = std::chrono::high_resolution_clock::now();
+    // auto latencyNs = std::chrono::duration_cast<std::chrono::nanoseconds>(now - order.timestamp).count();
+    // latencies.push_back(latencyNs);
 
     if(order.side == Side::Buy)
     {
@@ -77,11 +80,16 @@ void OrderBook::matchOrders(Order order){
                 asks.erase(asks.begin());
             }
 
+
+
             if(order.quantity==0){ //we are satisfied so we continue
                 break;
             }
 
         }
+
+
+
         if(order.quantity > 0) //if no sellers left but still wanting to buy we 'write' this into our book
         {
             addOrder(order);
@@ -113,12 +121,19 @@ void OrderBook::matchOrders(Order order){
             }
         }
 
+
+
         if(order.quantity > 0)
         {
             addOrder(order);
         }
         
     }
+
+    auto end = std::chrono::high_resolution_clock::now();
+    auto queueNs = std::chrono::duration_cast<std::chrono::nanoseconds>(start - order.timestamp).count();
+    auto matchingNs = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+    latencies.push_back(queueNs);
 
     
 }
