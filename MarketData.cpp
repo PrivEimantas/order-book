@@ -10,9 +10,9 @@ static std::uniform_int_distribution<int64_t> qtyDist(1, 100);
 static std::uniform_int_distribution<int64_t> sideDist(0, 1);
 
 
-Order generateRandomData(){
+Order generateRandomData(int64_t id){
     Order o;
-    o.id = priceDist(rng);        
+    o.id = id;     
     o.price = priceDist(rng);
     o.quantity = qtyDist(rng);
     o.side = sideDist(rng) == 1 ? Side::Buy : Side::Sell;

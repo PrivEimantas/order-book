@@ -5,6 +5,7 @@
 #include "SPSC.h"
 #include "SPSC.tpp"
 #include <thread>
+#include "MarketData.cpp"
 // argument is a constant string from std and we reference its memory address to avoid copying the string, so we dont actually modify the string that we passed in
 // you can pass in a non-const reference if you want to modify the string, but in this case we just want to read it and convert it to an enum, so we use a const reference
 //default is by value, so if you pass in it becomes duplicated so we waste memory and time, so we use reference to avoid that, and const to prevent modification of the original string
@@ -57,28 +58,36 @@ void quickTest()
 int main(){
 
     SPSC<Order> buffer(10);
+    OrderBook book;
+    std::atomic<bool> running(true);
 
     // producer thread - pushes 5 orders
     std::thread producer([&]() {
-        for (int i = 0; i < 5; i++) {
-            Order o;
-            o.id = i;
-            o.price = 10000 + (i * 100);
-            o.quantity = i + 1;
-            o.side = Side::Buy;
-            while (!buffer.push(o)) {}  // spin until space available
-            std::cout << "Pushed order " << o.id << "\n";
-        }
+        int i =0;
+        while(running){
+
+            Order order = generateRandomData(i++);
+            while(!buffer.push(order)){}
+            
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            
+        };
     });
 
     // consumer thread - pops 5 orders
     std::thread consumer([&]() {
-        for (int i = 0; i < 5; i++) {
+        while(running){
             Order result;
-            while (!buffer.pop(result)) {}  // spin until item available
-            std::cout << "Popped order " << result.id << " price: " << result.price << "\n";
+            if(buffer.pop(result)){
+                book.matchOrders(result);
+                book.printBook();
+            }
         }
     });
+
+
+    std::this_thread::sleep_for(std::chrono::seconds(5));
+    running = false;
 
     producer.join();
     consumer.join();
