@@ -8,10 +8,15 @@
 #include <iostream>
 #include <stdexcept>
 
+/*
+Why tpp?
 
+It's used when you don't want the file that contains the interface of a module to contain all the gory implementation details.
+But you cannot write the implementation in a .cpp file because it's a template. 
+So you do the best you can (not considering explicit instantiations and the like).
+*/
 
 //only need to use SPSC:: if outside class defining a method, since were interacting directly here we dont need it
-
 
 
 /*
@@ -34,6 +39,11 @@ So const T& means "give me a reference to your item so I don't have to copy it, 
 memory_order_relaxed — no restrictions at all. Just do the atomic load/store, don't add any fences. Used when you're reading your own index and don't need any synchronisation guarantee from it.
 memory_order_release — "everything I wrote before this store must be visible to other threads before this store becomes visible." Used on the tail store in push — guarantees the data write happens before the tail update is published.
 memory_order_acquire — "don't let any reads after this load be reordered before it." Used when reading the other side's index — guarantees you see everything the other thread wrote before its release store.
+
+
+
+Release — "I am publishing something. Everything I wrote before this point is guaranteed to be visible to whoever reads this atomic."
+Acquire — "I am reading something someone published. I am guaranteed to see everything they wrote before their release."
 
 */
 
