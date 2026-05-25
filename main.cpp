@@ -68,7 +68,7 @@ int main(){
 
             Order order = generateRandomData(i++);
             while(!buffer.push(order)){}
-            
+
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             
         };
@@ -91,6 +91,8 @@ int main(){
 
     producer.join();
     consumer.join();
+
+    book.printStats();
 
     return 0;
 }

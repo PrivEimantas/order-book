@@ -1,7 +1,7 @@
 #include "OrderBook.h"
 #include <iostream>
 #include <algorithm>
-
+#include <vector>
 
 void OrderBook::addOrder(Order order) {
     if (order.side == Side::Buy) {
@@ -48,6 +48,10 @@ void OrderBook::printBook() {
 //asks.begin()->second  = the deque    e.g. [order, order, order]
 
 void OrderBook::matchOrders(Order order){
+    auto now = std::chrono::high_resolution_clock::now();
+    auto latencyNs = std::chrono::duration_cast<std::chrono::nanoseconds>(now - order.timestamp).count();
+    latencies.push_back(latencyNs);
+
     if(order.side == Side::Buy)
     {
 
@@ -117,4 +121,20 @@ void OrderBook::matchOrders(Order order){
     }
 
     
+}
+
+
+void OrderBook::printStats() {
+    if(latencies.empty()) return;
+
+    std::vector<int64_t> sorted = latencies;
+    std::sort(sorted.begin(), sorted.end());
+
+    size_t p50 = sorted[sorted.size() * 0.50];
+    size_t p99 = sorted[sorted.size() * 0.99];
+
+    std::cout << "=== LATENCY STATS ===\n";
+    std::cout << "Samples: " << sorted.size() << "\n";
+    std::cout << "p50: " << p50 << "ns\n";
+    std::cout << "p99: " << p99 << "ns\n";
 }

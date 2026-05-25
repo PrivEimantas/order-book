@@ -11,12 +11,16 @@ static std::uniform_int_distribution<int64_t> sideDist(0, 1);
 
 
 Order generateRandomData(int64_t id){
+    
     Order o;
     o.id = id;     
     o.price = priceDist(rng);
     o.quantity = qtyDist(rng);
     o.side = sideDist(rng) == 1 ? Side::Buy : Side::Sell;
+
+    o.timestamp = std::chrono::high_resolution_clock::now();
+    
     return o;
 
-    return o;
+    
 }

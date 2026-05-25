@@ -16,6 +16,8 @@ public: //everything written after will be public
     void printBook();
     void matchOrders(Order order); //match orders and remove from book
 
+    void printStats();
+    std::vector<int64_t> latencies;
 };
 
 
