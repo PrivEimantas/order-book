@@ -6,8 +6,10 @@
 void OrderBook::addOrder(Order order) {
     if (order.side == Side::Buy) {
         bids[order.price].push_back(order);
+        if (order.price > bestBid) bestBid = order.price;
     } else {
         asks[order.price].push_back(order);
+        if (bestAsk == -1 || order.price < bestAsk) bestAsk = order.price;
     }
 }
 
@@ -46,98 +48,74 @@ void OrderBook::printBook() {
 
 //asks.begin()->first   = the price    e.g. 9000
 //asks.begin()->second  = the deque    e.g. [order, order, order]
+void OrderBook::matchOrders(Order order) {
+    auto start = std::chrono::high_resolution_clock::now();
 
-void OrderBook::matchOrders(Order order){
-  
+    if (order.side == Side::Buy) {
+        while (!asks.empty() && bestAsk != -1 && order.price >= bestAsk) {
+            auto& askQueue = asks[bestAsk];
+            Order& firstOrder = askQueue.front();
 
-        auto start = std::chrono::high_resolution_clock::now();
-    // auto now = std::chrono::high_resolution_clock::now();
-    // auto latencyNs = std::chrono::duration_cast<std::chrono::nanoseconds>(now - order.timestamp).count();
-    // latencies.push_back(latencyNs);
-
-    if(order.side == Side::Buy)
-    {
-
-        while(!asks.empty() && order.price >= asks.begin()->first)
-        {
-            int64_t sellingPrice = asks.begin()->first; // get the price at the first valid option
-            auto& askQueue = asks.begin()->second; // get the list of sellers for that price 
-            Order& firstOrder = askQueue.front(); //get the first seller
-            
-            int32_t fillqty = std::min(order.quantity,firstOrder.quantity); //take as many shares as possible, e.g. we want 20 and they have 10 or 30 we need to know who is satisfied
-
-            std::cout << "FILL: " << fillqty << " @ " << sellingPrice / 100.0 << "\n";
-            
-            order.quantity = order.quantity - fillqty; // are we satisfied?
-            firstOrder.quantity = firstOrder.quantity - fillqty; // has the seller sold all their shares?
-             
-            if(firstOrder.quantity==0) //if so then get rid of it from the queue
-            {
-                askQueue.pop_front();
-            }
-
-            if(askQueue.empty()){ //no sellers left
-                asks.erase(asks.begin());
-            }
-
-
-
-            if(order.quantity==0){ //we are satisfied so we continue
-                break;
-            }
-
-        }
-
-
-
-        if(order.quantity > 0) //if no sellers left but still wanting to buy we 'write' this into our book
-        {
-            addOrder(order);
-        }
-    }
-    else //same logic but reverse the seller/buyer
-    {
-        while(!bids.empty() && order.price <= bids.begin()->first)
-        {
-            int64_t buyingPrice = bids.begin()->first;
-            auto& bidQueue = bids.begin()->second;
-            Order& firstOrder = bidQueue.front();
-
-            int32_t fillQty = std::min(order.quantity, firstOrder.quantity);
-
-            std::cout << "FILL: " << fillQty << " @ " << buyingPrice / 100.0 << "\n";
+            int64_t fillQty = std::min(order.quantity, firstOrder.quantity);
+            std::cout << "FILL: " << fillQty << " @ " << bestAsk / 100.0 << "\n";
 
             order.quantity -= fillQty;
             firstOrder.quantity -= fillQty;
 
-            if(firstOrder.quantity == 0){
+            if (firstOrder.quantity == 0) {
+                askQueue.pop_front();
+            }
+            if (askQueue.empty()) {
+                asks.erase(bestAsk);
+                bestAsk = findNextAsk();
+            }
+            if (order.quantity == 0) break;
+        }
+        if (order.quantity > 0) addOrder(order);
+    }
+    else {
+        while (!bids.empty() && bestBid != -1 && order.price <= bestBid) {
+            auto& bidQueue = bids[bestBid];
+            Order& firstOrder = bidQueue.front();
+
+            int64_t fillQty = std::min(order.quantity, firstOrder.quantity);
+            std::cout << "FILL: " << fillQty << " @ " << bestBid / 100.0 << "\n";
+
+            order.quantity -= fillQty;
+            firstOrder.quantity -= fillQty;
+
+            if (firstOrder.quantity == 0) {
                 bidQueue.pop_front();
             }
-            if(bidQueue.empty()){
-                bids.erase(bids.begin());
+            if (bidQueue.empty()) {
+                bids.erase(bestBid);
+                bestBid = findNextBid();
             }
-            if(order.quantity == 0){
-                break;
-            }
+            if (order.quantity == 0) break;
         }
-
-
-
-        if(order.quantity > 0)
-        {
-            addOrder(order);
-        }
-        
+        if (order.quantity > 0) addOrder(order);
     }
 
     auto end = std::chrono::high_resolution_clock::now();
     auto queueNs = std::chrono::duration_cast<std::chrono::nanoseconds>(start - order.timestamp).count();
-    auto matchingNs = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
     latencies.push_back(queueNs);
-
-    
 }
 
+int64_t OrderBook::findNextAsk() {
+    int64_t best = -1;
+    for (const auto& [price, queue] : asks) {
+        if (best == -1 || price < best) best = price;
+    }
+    return best;
+}
+
+int64_t OrderBook::findNextBid() {
+    int64_t best = -1;
+    for (const auto& [price, queue] : bids) {
+        if (price > best) best = price;
+    }
+    return best;
+}
 
 void OrderBook::printStats() {
     if(latencies.empty()) return;
