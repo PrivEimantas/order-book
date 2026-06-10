@@ -3,9 +3,8 @@
 #include "Share.h"
 #include "OrderBook.h"
 #include "SPSC.h"
-#include "SPSC.tpp"
 #include <thread>
-#include "MarketData.cpp"
+#include "MarketData.h"
 // argument is a constant string from std and we reference its memory address to avoid copying the string, so we dont actually modify the string that we passed in
 // you can pass in a non-const reference if you want to modify the string, but in this case we just want to read it and convert it to an enum, so we use a const reference
 //default is by value, so if you pass in it becomes duplicated so we waste memory and time, so we use reference to avoid that, and const to prevent modification of the original string

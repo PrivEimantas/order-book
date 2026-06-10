@@ -6,9 +6,11 @@
 void OrderBook::addOrder(Order order) {
     if (order.side == Side::Buy) {
         bids[order.price].push_back(order);
+        orderIndex[order.id] = {order.price, order.side};
         if (order.price > bestBid) bestBid = order.price;
     } else {
         asks[order.price].push_back(order);
+        orderIndex[order.id] = {order.price, order.side};
         if (bestAsk == -1 || order.price < bestAsk) bestAsk = order.price;
     }
 }
@@ -27,21 +29,23 @@ void OrderBook::addOrder(Order order) {
     * 
  */
 void OrderBook::printBook() {
-    std::cout << "Order Book:" << std::endl;
-    std::cout << "Bids:" << std::endl;
-    for (const auto& [price, orders] : bids) {
-        for (const auto& order : orders) {
-            std::cout << "ID: " << order.id 
-                      << ", Price: $" << order.price / 100.0 
-                      << ", Quantity: " << order.quantity << std::endl;
+    std::cout << "Bids:\n";
+    std::vector<int64_t> bidPrices;
+    for (const auto& [price, _] : bids) bidPrices.push_back(price);
+    std::sort(bidPrices.rbegin(), bidPrices.rend()); // highest first
+    for (int64_t price : bidPrices) {
+        for (const auto& order : bids[price]) {
+            std::cout << "ID: " << order.id << ", Price: $" << price / 100.0 << ", Qty: " << order.quantity << "\n";
         }
     }
-    std::cout << "Asks:" << std::endl;
-    for (const auto& [price, orders] : asks) {
-        for (const auto& order : orders) {
-            std::cout << "ID: " << order.id 
-                      << ", Price: $" << order.price / 100.0 
-                      << ", Quantity: " << order.quantity << std::endl;
+
+    std::cout << "Asks:\n";
+    std::vector<int64_t> askPrices;
+    for (const auto& [price, _] : asks) askPrices.push_back(price);
+    std::sort(askPrices.begin(), askPrices.end()); // lowest first
+    for (int64_t price : askPrices) {
+        for (const auto& order : asks[price]) {
+            std::cout << "ID: " << order.id << ", Price: $" << price / 100.0 << ", Qty: " << order.quantity << "\n";
         }
     }
 }
@@ -101,6 +105,32 @@ void OrderBook::matchOrders(Order order) {
     latencies.push_back(queueNs);
 }
 
+bool OrderBook::cancelOrder(int64_t id) {
+    auto it = orderIndex.find(id);
+    if (it == orderIndex.end()) return false;
+
+    int64_t price = it->second.price;
+    Side side = it->second.side;
+
+    auto& book = (side == Side::Buy) ? bids : asks;
+    auto& queue = book[price];
+
+    queue.erase(
+        std::remove_if(queue.begin(), queue.end(),
+            [id](const Order& o) { return o.id == id; }),
+        queue.end()
+    );
+
+    if (queue.empty()) {
+        book.erase(price);
+        if (side == Side::Buy) bestBid = findNextBid();
+        else bestAsk = findNextAsk();
+    }
+
+    orderIndex.erase(it);
+    return true;
+}
+
 int64_t OrderBook::findNextAsk() {
     int64_t best = -1;
     for (const auto& [price, queue] : asks) {
@@ -123,8 +153,9 @@ void OrderBook::printStats() {
     std::vector<int64_t> sorted = latencies;
     std::sort(sorted.begin(), sorted.end());
 
-    size_t p50 = sorted[sorted.size() * 0.50];
-    size_t p99 = sorted[sorted.size() * 0.99];
+    // printStats - replace floating point index with integer arithmetic
+    size_t p50 = sorted[(sorted.size() - 1) * 50 / 100];
+    size_t p99 = sorted[(sorted.size() - 1) * 99 / 100];
 
     std::cout << "=== LATENCY STATS ===\n";
     std::cout << "Samples: " << sorted.size() << "\n";
