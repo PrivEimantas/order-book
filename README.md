@@ -20,4 +20,4 @@ g++ -std=c++17 -O3 -o orderbook main.cpp OrderBook.cpp MarketData.cpp
 | Metric | Value |
 |--------|-------|
 | p50    | ~1200ns |
-| p99    | ~16600ns |
+| p99    | ~14700ns |

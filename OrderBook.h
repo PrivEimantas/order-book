@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <deque>
 #include <vector>
+#include <array>
 
 class OrderBook {
 public:
@@ -15,9 +16,20 @@ public:
     bool cancelOrder(int64_t id);
     void printStats();
 
+  
+
+
 private:
-    std::unordered_map<int64_t, std::deque<Order>> bids;
-    std::unordered_map<int64_t, std::deque<Order>> asks;
+
+    static constexpr int64_t MIN_PRICE   = 9000;   // $90.00
+    static constexpr int64_t MAX_PRICE   = 11000;  // $110.00
+    static constexpr size_t  LADDER_SIZE = MAX_PRICE - MIN_PRICE + 1;
+
+    struct PriceLevel {
+        std::deque<Order> orders;
+    };
+        std::array<PriceLevel, LADDER_SIZE> bids;
+        std::array<PriceLevel, LADDER_SIZE> asks;
 
     struct OrderLocation {
         int64_t price;

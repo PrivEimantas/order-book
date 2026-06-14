@@ -4,61 +4,43 @@
 #include <vector>
 
 void OrderBook::addOrder(Order order) {
+    size_t idx = order.price - MIN_PRICE;
     if (order.side == Side::Buy) {
-        bids[order.price].push_back(order);
+        bids[idx].orders.push_back(order);
         orderIndex[order.id] = {order.price, order.side};
         if (order.price > bestBid) bestBid = order.price;
     } else {
-        asks[order.price].push_back(order);
+        asks[idx].orders.push_back(order);
         orderIndex[order.id] = {order.price, order.side};
         if (bestAsk == -1 || order.price < bestAsk) bestAsk = order.price;
     }
 }
 
-
-/**
- * Auto - compiler figures out what type to use and the & is memory reference as otherwise you make a copy, we use const to make it not modifiable as compiler optimises to prevent accidental writes
- * 
- * The [price ,orders ] is just same as the python for loop where you can do 
- * 
- *  pairs = [(1, "one"), (2, "two"), (3, "three")]
-    for number, word in pairs:
-        print(number, word)
- 
-    * 
-    * 
- */
 void OrderBook::printBook() {
     std::cout << "Bids:\n";
-    std::vector<int64_t> bidPrices;
-    for (const auto& [price, _] : bids) bidPrices.push_back(price);
-    std::sort(bidPrices.rbegin(), bidPrices.rend()); // highest first
-    for (int64_t price : bidPrices) {
-        for (const auto& order : bids[price]) {
+    for (int64_t price = MAX_PRICE; price >= MIN_PRICE; price--) {
+        auto& level = bids[price - MIN_PRICE];
+        for (const auto& order : level.orders) {
             std::cout << "ID: " << order.id << ", Price: $" << price / 100.0 << ", Qty: " << order.quantity << "\n";
         }
     }
 
     std::cout << "Asks:\n";
-    std::vector<int64_t> askPrices;
-    for (const auto& [price, _] : asks) askPrices.push_back(price);
-    std::sort(askPrices.begin(), askPrices.end()); // lowest first
-    for (int64_t price : askPrices) {
-        for (const auto& order : asks[price]) {
+    for (int64_t price = MIN_PRICE; price <= MAX_PRICE; price++) {
+        auto& level = asks[price - MIN_PRICE];
+        for (const auto& order : level.orders) {
             std::cout << "ID: " << order.id << ", Price: $" << price / 100.0 << ", Qty: " << order.quantity << "\n";
         }
     }
 }
 
-//asks.begin()->first   = the price    e.g. 9000
-//asks.begin()->second  = the deque    e.g. [order, order, order]
 void OrderBook::matchOrders(Order order) {
     auto start = std::chrono::high_resolution_clock::now();
 
     if (order.side == Side::Buy) {
-        while (!asks.empty() && bestAsk != -1 && order.price >= bestAsk) {
-            auto& askQueue = asks[bestAsk];
-            Order& firstOrder = askQueue.front();
+        while (bestAsk != -1 && order.price >= bestAsk) {
+            auto& askLevel = asks[bestAsk - MIN_PRICE];
+            Order& firstOrder = askLevel.orders.front();
 
             int64_t fillQty = std::min(order.quantity, firstOrder.quantity);
             std::cout << "FILL: " << fillQty << " @ " << bestAsk / 100.0 << "\n";
@@ -67,10 +49,10 @@ void OrderBook::matchOrders(Order order) {
             firstOrder.quantity -= fillQty;
 
             if (firstOrder.quantity == 0) {
-                askQueue.pop_front();
+                orderIndex.erase(firstOrder.id);
+                askLevel.orders.pop_front();
             }
-            if (askQueue.empty()) {
-                asks.erase(bestAsk);
+            if (askLevel.orders.empty()) {
                 bestAsk = findNextAsk();
             }
             if (order.quantity == 0) break;
@@ -78,9 +60,9 @@ void OrderBook::matchOrders(Order order) {
         if (order.quantity > 0) addOrder(order);
     }
     else {
-        while (!bids.empty() && bestBid != -1 && order.price <= bestBid) {
-            auto& bidQueue = bids[bestBid];
-            Order& firstOrder = bidQueue.front();
+        while (bestBid != -1 && order.price <= bestBid) {
+            auto& bidLevel = bids[bestBid - MIN_PRICE];
+            Order& firstOrder = bidLevel.orders.front();
 
             int64_t fillQty = std::min(order.quantity, firstOrder.quantity);
             std::cout << "FILL: " << fillQty << " @ " << bestBid / 100.0 << "\n";
@@ -89,10 +71,10 @@ void OrderBook::matchOrders(Order order) {
             firstOrder.quantity -= fillQty;
 
             if (firstOrder.quantity == 0) {
-                bidQueue.pop_front();
+                orderIndex.erase(firstOrder.id);
+                bidLevel.orders.pop_front();
             }
-            if (bidQueue.empty()) {
-                bids.erase(bestBid);
+            if (bidLevel.orders.empty()) {
                 bestBid = findNextBid();
             }
             if (order.quantity == 0) break;
@@ -111,18 +93,17 @@ bool OrderBook::cancelOrder(int64_t id) {
 
     int64_t price = it->second.price;
     Side side = it->second.side;
+    size_t idx = price - MIN_PRICE;
 
-    auto& book = (side == Side::Buy) ? bids : asks;
-    auto& queue = book[price];
+    auto& level = (side == Side::Buy) ? bids[idx] : asks[idx];
 
-    queue.erase(
-        std::remove_if(queue.begin(), queue.end(),
+    level.orders.erase(
+        std::remove_if(level.orders.begin(), level.orders.end(),
             [id](const Order& o) { return o.id == id; }),
-        queue.end()
+        level.orders.end()
     );
 
-    if (queue.empty()) {
-        book.erase(price);
+    if (level.orders.empty()) {
         if (side == Side::Buy) bestBid = findNextBid();
         else bestAsk = findNextAsk();
     }
@@ -132,28 +113,25 @@ bool OrderBook::cancelOrder(int64_t id) {
 }
 
 int64_t OrderBook::findNextAsk() {
-    int64_t best = -1;
-    for (const auto& [price, queue] : asks) {
-        if (best == -1 || price < best) best = price;
+    for (int64_t price = MIN_PRICE; price <= MAX_PRICE; price++) {
+        if (!asks[price - MIN_PRICE].orders.empty()) return price;
     }
-    return best;
+    return -1;
 }
 
 int64_t OrderBook::findNextBid() {
-    int64_t best = -1;
-    for (const auto& [price, queue] : bids) {
-        if (price > best) best = price;
+    for (int64_t price = MAX_PRICE; price >= MIN_PRICE; price--) {
+        if (!bids[price - MIN_PRICE].orders.empty()) return price;
     }
-    return best;
+    return -1;
 }
 
 void OrderBook::printStats() {
-    if(latencies.empty()) return;
+    if (latencies.empty()) return;
 
     std::vector<int64_t> sorted = latencies;
     std::sort(sorted.begin(), sorted.end());
 
-    // printStats - replace floating point index with integer arithmetic
     size_t p50 = sorted[(sorted.size() - 1) * 50 / 100];
     size_t p99 = sorted[(sorted.size() - 1) * 99 / 100];
 
